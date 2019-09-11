@@ -1,0 +1,58 @@
+<?php
+
+/**
+ * Implements hook_install().
+ */
+function islandora_scholar_profile_install() {
+  $t = get_t();
+  // Includes
+  module_load_include('inc', 'islandora', 'includes/utilities');
+  module_load_include('module', 'islandora_scholar_profile', 'islandora_scholar_profile');
+  // if fedora is not available exit out and prevent the module from being installed
+  if (!islandora_describe_repository()) {
+    $msg = $t('Islandora Scholar Profile: Did not install any objects. Could not connect to the repository. Please check the settings on the !config_link page and install the required objects manually on the !admin_link page.');
+    drupal_set_message(filter_xss($msg), 'error');
+    return;
+  }
+  $connection = islandora_get_tuque_connection();
+
+  $required_objects = module_invoke('islandora_scholar_profile', 'islandora_required_objects', $connection);
+
+  $status_messages = [
+    'up_to_date' => $t('The object already exists and is up-to-date.'),
+    'missing_datastream' => $t('The object already exists but is missing a datastream. Please reinstall the object.'),
+    'out_of_date' => $t('The object already exists but is out-of-date. Please update the object.'),
+    'modified_datastream' => $t('The object already exists but datastreams are modified. Please reinstall the object.'),
+  ];
+  // We need to make sure our custom collection is enabled, if it exists already we just warm the user
+  foreach ($required_objects as $_object) {
+    foreach ($_object['objects'] as $object) {
+      $already_exists = islandora_object_load($object->id);
+
+      $label = $object->label;
+      $object_link = l($label, "islandora/object/{$object->id}");
+      if ($already_exists) {
+        $object_status = islandora_check_object_status($object);
+        $here_params = [
+          '!summary' => $t("@module: Did not install !object_link.", [
+            '!object_link' => $object_link,
+          ]),
+          '!description' => $status_messages[$object_status['status']],
+        ];
+        drupal_set_message(filter_xss(format_string('!summary !description', $here_params)), 'warning');
+        continue;
+      } else {
+        islandora_add_object($object);
+        drupal_set_message(filter_xss(format_string('Created Person collection')), 'alert');
+      }
+    }
+  }
+
+  // Create vocabulary for activities
+  $new_vocab = (object) array(
+    'name' => $t('Islandora Profile Activities'),
+    'description' => '',
+    'machine_name' => 'islandora_sp_activities_vocabulary',
+  );
+  taxonomy_vocabulary_save($new_vocab);
+}

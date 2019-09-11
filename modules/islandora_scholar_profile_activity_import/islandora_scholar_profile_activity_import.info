@@ -1,0 +1,9 @@
+name = Islandora Scholar Extended Profile -- Activities Taxonomy Sample Data
+description = Imports sample taxonomy data to be used as a base for profile activities
+package = Islandora Scholar
+dependencies[] = islandora_scholar_profile
+; Third party module, this exposes the required API to import the default file w/o user interaction
+dependencies[] = taxonomy_csv
+dependencies[] = term_ref_autocomplete
+core = 7.x
+version = 7.x-1.12

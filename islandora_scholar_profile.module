@@ -1,0 +1,437 @@
+<?php
+
+/**
+ * Implements hook_menu().
+ */
+function islandora_scholar_profile_menu() {
+  $items = [];
+  $items['admin/islandora/solution_pack_config/scholar/profile'] = array(
+    'title' => 'Profile',
+    'description' => 'Configure the scholar Profile.',
+    'page callback' => 'drupal_get_form',
+    'access arguments' => ['administer site configuration'],
+    'page arguments' => ['islandora_scholar_profile_admin'],
+    'file' => 'includes/admin.form.inc',
+    'type' => MENU_LOCAL_TASK,
+  );
+  $items['islandora/entities/autocomplete/fp/%'] = array(
+    'title' => 'Form Callbacks',
+    'page callback' => 'islandora_scholar_profile_entities_autocomplete',
+    'page arguments' => array(4),
+    'type' => MENU_CALLBACK,
+    'access arguments' => array('search islandora solr'),
+  );
+  // This will use the default islandora/search callback
+  $items['scholars/directory'] = array(
+    'title' => 'Scholar\'s directory',
+    'page callback' => 'islandora_scholar_profile_directory',
+    'type' => MENU_NORMAL_ITEM,
+    'menu_name' => 'main-menu',
+    'access arguments' => array('access content'),
+  );
+  return $items;
+}
+
+/**
+ * Redirects to search
+ */
+function islandora_scholar_profile_directory() {
+  drupal_goto('islandora/search/RELS_EXT_isMemberOfCollection_uri_s:(info\:fedora\~slsh~islandora\:person)');
+}
+/**
+ * Implements hook_prepare().
+ */
+function islandora_scholar_profile_prepare($node) {
+
+}
+
+/**
+ * Implements hook_init().
+ */
+function islandora_scholar_profile_preprocess_html(&$variables) {
+  $path = drupal_get_path('module', 'islandora_scholar_profile');
+  drupal_add_css($path . '/css/islandora-person.css');
+}
+
+
+function islandora_scholar_profile_term_ref_autocomplete_callback($field_name, $raw_tags_typed = '') {
+  $field = field_info_field($field_name);
+
+  // The user enters a comma-separated list of tags. We only autocomplete the last tag.
+  $tids = _term_ref_autocomplete_parse_input($raw_tags_typed);
+  $tags_typed = drupal_explode_tags($raw_tags_typed);
+  $tag_last = (count($tids) == count($tags_typed)) ? '' : drupal_strtolower(array_pop($tags_typed));
+
+  $matches = array();
+  $term_matches = array();
+  if ($tag_last != '') {
+
+    // Part of the criteria for the query come from the field's own settings.
+    $vids = array();
+    $vocabularies = taxonomy_vocabulary_get_names();
+    foreach ($field['settings']['allowed_values'] as $tree) {
+      $vids[] = $vocabularies[$tree['vocabulary']]->vid;
+    }
+
+    $query = db_select('taxonomy_term_data', 't');
+    $query->addTag('translatable');
+    $query->addTag('term_access');
+
+    // Do not select already entered terms.
+    if (!empty($tags_typed)) {
+      $query->condition('t.tid', $tids, 'NOT IN');
+    }
+    // Select rows that match by term name.
+    $tags_return = $query
+      ->fields('t', array('tid', 'name'))
+      ->condition('t.vid', $vids)
+      ->condition('t.name', '%' . db_like($tag_last) . '%', 'LIKE')
+      ->range(0, 10)
+      ->execute()
+      ->fetchAllKeyed();
+
+    $prefix = count($tags_typed) ? drupal_implode_tags($tags_typed) . ', ' : '';
+
+    foreach ($tags_return as $tid => $name) {
+      $ancestors = array_reverse(taxonomy_get_parents_all($tid));
+      $term_tmp = &$term_matches;
+      foreach ($ancestors as $ancestor) {
+        $n = $ancestor->name;
+        // Term names containing commas or quotes must be wrapped in quotes.
+        if (strpos($n, ',') !== FALSE || strpos($n, '"') !== FALSE) {
+          $n = '"' . str_replace('"', '""', $n) . '"';
+        }
+        $term_tmp[$ancestor->tid]['display'] = $prefix . $n;
+        $term_tmp[$ancestor->tid]['position'] = count($tags_typed);
+        $term_tmp[$ancestor->tid]['name'] = $ancestor->name;
+        if (!isset($term_tmp[$ancestor->tid]['children'])) {
+          $term_tmp[$ancestor->tid]['children'] = array();
+        }
+        $term_tmp = &$term_tmp[$ancestor->tid]['children'];
+      }
+    }
+  }
+
+  drupal_json_output($term_matches);
+}
+
+/**
+ * Implements hook_theme_registry_alter().
+ */
+function islandora_scholar_profile_theme_registry_alter(&$theme_registry) {
+  $path = drupal_get_path('module', 'islandora_scholar_profile');
+  // Override profile theme
+  $theme_registry['islandora_person']['template'] = $path . '/templates/islandora-person';
+  $theme_registry['islandora_person']['theme path'] = $path;
+}
+
+
+/**
+ * Implements hook_islandora_required_objects().
+ */
+function islandora_scholar_profile_islandora_required_objects(IslandoraTuque $connection) {
+  $module_path = drupal_get_path('module', 'islandora_scholar_profile');
+
+  $person_collection = $connection->repository->constructObject('islandora:person');
+  $person_collection->owner = 'fedoraAdmin';
+  $person_collection->label = 'Person Collection';
+  $person_collection->models = 'islandora:collectionCModel';
+  $person_collection->relationships->add(FEDORA_RELS_EXT_URI, 'isMemberOfCollection', 'islandora:root');
+  // Collection Policy Datastream.
+  $datastream = $person_collection->constructDatastream('COLLECTION_POLICY', 'X');
+  $datastream->label = 'Collection policy';
+  $datastream->mimetype = 'application/xml';
+  $datastream->setContentFromFile("$module_path/xml/islandora_scholar_profile_collection_policy.xml", FALSE);
+  $person_collection->ingestDatastream($datastream);
+  // TN Datastream.
+  $datastream = $person_collection->constructDatastream('TN', 'M');
+  $datastream->label = 'Thumbnail';
+  $datastream->mimetype = 'image/png';
+  $datastream->setContentFromFile("$module_path/images/folder.png", FALSE);
+  $person_collection->ingestDatastream($datastream);
+  return [
+    'islandora_person' => [
+      'title' => 'Islandora Person',
+      'objects' => [
+        $person_collection,
+      ],
+    ],
+  ];
+}
+
+/**
+ * Returns array of items to autocomplete forms.
+ *
+ * @param string $type
+ *   Selects either Scholar or Department
+ *
+ * @return void array of all candidates
+ *   array of all candidates
+ */
+function islandora_scholar_profile_entities_autocomplete($type) {
+  $mappings = array(
+    'disambiguated' => array(
+      'cmodel' => 'info:fedora/islandora:personCModel',
+      'title' => variable_get('islandora_scholar_profile_entities_scholar_title_solr_field', 'MADS_u1_ms'),
+    ),
+    'department' => array(
+      'cmodel' => 'info:fedora/islandora:organizationCModel',
+      'title' => variable_get('islandora_scholar_profile_entities_department_solr_field', 'MADS_u2_ms'),
+    ),
+  );
+  $qualifier = $mappings[$type]['title'] . ':*';
+  $path = request_path();
+  if ($path) {
+    $path_array = explode('/', $path);
+    $stub = end($path_array);
+    $qualifier = $mappings[$type]['title'] . ':' . $stub . '*';
+  }
+  $query = "$qualifier AND " . 'RELS_EXT_hasModel_uri_ms:"' . $mappings[$type]['cmodel'] . '"';
+  $qp = new IslandoraSolrQueryProcessor();
+  $qp->buildQuery($query);
+  $qp->solrParams['fl'] = "{$mappings[$type]['title']},PID";
+  $qp->executeQuery(FALSE);
+  try {
+    $results = $qp->islandoraSolrResult['response']['objects'];
+  }
+  catch (Exception $e) {
+    watchdog_exception('Islandora Entities', $e, 'Got an exception while searching entities for callback.', array(), WATCHDOG_ERROR);
+    $results = array();
+  }
+  $list = array();
+  if ($results) {
+    foreach ($results as $choice) {
+      if (isset($choice['solr_doc'][$mappings[$type]['title']])) {
+        $list[$choice['solr_doc'][$mappings[$type]['title']][0]] = $choice['solr_doc'][$mappings[$type]['title']][0];
+      }
+    }
+  }
+
+  drupal_json_output($list);
+}
+
+/**
+ * Implements hook_xml_form_builder_get_form_modify_definition_alter().
+ * Updates forms to include u1 and u2 fields on all objects
+ *
+ * @param $form
+ * @param $form_state
+ */
+function islandora_scholar_profile_xml_form_builder_get_form_modify_definition_alter(&$form, &$form_state) {
+  $core_vocabulary = variable_get('islandora_scholar_profile_activity_taxonomy', 'islandora_sp_activities_vocabulary');
+  $core_activities_voc = taxonomy_vocabulary_machine_name_load($core_vocabulary);
+  $core_activities_voc_ref = variable_get('islandora_scholar_profile_activity_taxonomy_ref_field', 'field_islandora_spa_reference');
+  if ((isset($form_state['association']) && $form_state['association']['dsid'] == 'MADS') || (isset($form_state['islandora']['step_storage']) && $form_state['islandora']['step_storage']['xml_form_builder_metadata_step']['association']['dsid'] == 'MADS')) {
+    /**
+     * Here we're updating the XML form to expose Interests as a taxonomy reference instead of just plain tags, as long as the
+     * taxonomy vocabulary and reference field set by the user exists, this will limit the things users can set as interests as they
+     * should exist beforehand.
+     */
+    if ($core_activities_voc && field_info_instance('taxonomy_term', $core_activities_voc_ref, $core_vocabulary)) {
+      if (isset($form['fieldOfActivity_tags'])) {
+        $form['fieldOfActivity_tags']['fieldOfActivity']['#autocomplete_path'] = 'taxonomy/autocomplete/' . $core_activities_voc_ref;
+        //$form['fieldOfActivity_tags']['fieldOfActivity']['#element_validate'] = ['term_ref_autocomplete_taxonomy_autocomplete_validate'];
+        $form['fieldOfActivity_tags']['fieldOfActivity']['#element_validate'] = ['term_ref_autocomplete_taxonomy_autocomplete_validate'];
+      }
+    }
+  }
+  /**
+   * Also we need to create custom references to u1 and u2 identifiers to create custom queries and reports, for any object.
+   */
+  if ((isset($form_state['association']) && $form_state['association']['dsid'] == 'MODS') || (isset($form_state['islandora']['step_storage']) && $form_state['islandora']['step_storage']['xml_form_builder_metadata_step']['association']['dsid'] == 'MODS')) {
+    $form['u1_identifier_tags'] = [
+      '#type' => 'tags',
+      '#access' => TRUE,
+      '#required' => FALSE,
+      '#description' => 'This is the faculty member\'s identifier ID. If more than one faculty member is required, select Add button and add another identifier.',
+      '#title' => 'Faculty Identifier(s) - U1',
+      '#tree' => TRUE,
+      '#autocomplete_path' => 'islandora/entities/autocomplete/fp/disambiguated',
+      'u1_identifier_text' =>
+        [
+          '#type' => 'tag',
+          '#access' => TRUE,
+          '#autocomplete_path' => 'islandora/entities/autocomplete/fp/disambiguated',
+          '#required' => FALSE,
+          '#tree' => TRUE,
+          '#actions' =>
+            [
+              'create' =>
+                [
+                  'path' => '/mods:mods',
+                  'context' => 'document',
+                  'schema' => '',
+                  'type' => 'xml',
+                  'prefix' => NULL,
+                  'value' => '<identifier type="u1">%value%</identifier>',
+                ],
+              'read' =>
+                [
+                  'path' => '/mods:mods/mods:identifier[@type=\'u1\']',
+                  'context' => 'document',
+                ],
+              'update' => [
+                'path' => 'self::node()',
+                'context' => 'self',
+              ],
+              'delete' => [
+                'path' => 'self::node()',
+                'context' => 'self',
+              ],
+            ],
+        ],
+    ];
+
+    $form['u2_identifier_tags'] = [
+      '#type' => 'tags',
+      '#access' => TRUE,
+      '#required' => FALSE,
+      '#description' => 'This is the departmental identifier. If more than one department is required, select Add button and add another identifier. Ensure that you are using an <b>authorized departmental</b> name from the IslandScholar list.',
+      '#title' => 'Departmental Identifier(s) - U2',
+      '#tree' => TRUE,
+      '#autocomplete_path' => 'islandora/entities/autocomplete/fp/department',
+      'u2_identifier_text' =>
+        [
+          '#type' => 'tag',
+          '#access' => TRUE,
+          '#autocomplete_path' => 'islandora/entities/autocomplete/fp/department',
+          '#required' => FALSE,
+          '#tree' => TRUE,
+          '#actions' =>
+            [
+              'create' =>
+                [
+                  'path' => '/mods:mods',
+                  'context' => 'document',
+                  'schema' => '',
+                  'type' => 'xml',
+                  'prefix' => NULL,
+                  'value' => '<identifier type="u2">%value%</identifier>',
+                ],
+              'read' =>
+                [
+                  'path' => '/mods:mods/mods:identifier[@type=\'u2\']',
+                  'context' => 'document',
+                ],
+              'update' => [
+                'path' => 'self::node()',
+                'context' => 'self',
+              ],
+              'delete' => [
+                'path' => 'self::node()',
+                'context' => 'self',
+              ],
+            ],
+        ],
+    ];
+  }
+}
+
+/**
+ * Implements template_preprocess_HOOK().
+ */
+function islandora_scholar_profile_preprocess_islandora_person(array &$variables) {
+  $biography = "";
+  $object = $variables['object'];
+  $object_pid = $object->id;
+
+  if ($object['MADS']) {
+    $mads = $object['MADS']->content;
+    $simplexml = simplexml_load_string($mads);
+
+    // Re-write activities
+    $activities = $simplexml->fieldOfActivity;
+    $activity_vocabulary = variable_get('islandora_scholar_profile_activity_taxonomy', 'islandora_sp_activities_vocabulary');
+    foreach ($activities as $activity_name) {
+      $activity_name = (string) $activity_name;
+      if ($activity_name) {
+        $terms = taxonomy_get_term_by_name($activity_name, $activity_vocabulary);
+        if (!empty($terms)) {
+          //if there are multiple matches, use the first one
+          $terms = array_shift($terms);
+          $activity_name = l($terms->name, 'islandora/search/MADS_fieldOfActivity_ms:('. str_replace('/', '\~slsh~', $terms->name) .') AND RELS_EXT_isMemberOfCollection_uri_s:(info\:fedora\~slsh~islandora\:person)');
+        }
+        // lookup in taxonomy defined in settings.
+        $fields_of_activity[] = (string) $activity_name;
+      }
+    }
+    if (isset($fields_of_activity)) {
+      $list_variables = [
+        'items' => $fields_of_activity,
+        'title' => t('Research Interests'),
+        'type' => 'ul',
+        'attributes' => ['class' => 'research_interests'],
+      ];
+      $variables['activities'] = theme_item_list($list_variables);
+    }
+    $identifiers = $simplexml->identifier;
+    foreach ($identifiers as $identifier) {
+      // get all publications with a u1 identifier
+      if ($identifier['type'] == 'u1' && (string) $identifier) {
+        $themed_links = islandora_scholar_profile_get_related_publications((string) $identifier, $variables['title']);
+        $variables['recent_citations_see_all'] = l('See All', 'islandora/search/mods_identifier_u1_ms:('.$identifier.')');
+      }
+    }
+    if (!empty($themed_links)) {
+      $variables['recent_citations'] = $themed_links;
+    }
+  }
+}
+
+
+/**
+ * Gets all citations related to scholars's unique identifier.
+ *
+ * @param string $identifier
+ *   Scholar's unique ID
+ *
+ * @param $title
+ *
+ * @return string|null Array of links pointing to citations
+ *   Array of links pointing to citations
+ */
+function islandora_scholar_profile_get_related_publications($identifier, $title) {
+
+  $entities_linking_field = variable_get(
+    'islandora_scholar_profile_entities_linking_content_solr_field', 'mods_identifier_u1_ms'
+  );
+  $query = "+{$entities_linking_field}:\"$identifier\"";
+  $params = array(
+    'limit' => variable_get('islandora_entities_citation_number', '20'),
+  );
+  if (strlen(variable_get('islandora_entities_query_sort', '')) > 0) {
+    $params['sort'] = variable_get('islandora_entities_query_sort', '')
+      . ' ' . variable_get('islandora_entities_query_sort_direction', 'asc');
+  }
+
+  $qp = new IslandoraSolrQueryProcessor();
+  $qp->buildQuery($query, $params);
+  $qp->solrParams['fl'] = "dc.title, PID";
+  $qp->executeQuery(FALSE);
+  try {
+    $results = $qp->islandoraSolrResult['response']['objects'];
+  }
+  catch (Exception $e) {
+    watchdog_exception('Islandora Entities', $e, 'Got an exception while searching entities for callback.', array(), WATCHDOG_ERROR);
+    $results = array();
+  }
+  if ($results) {
+    $links = array();
+    foreach ($results as $choice) {
+      if (isset($choice['solr_doc']['dc.title'])) {
+        $links[] = l($choice['solr_doc']['dc.title'][0], 'islandora/object/' . $choice['PID']);
+      }
+    }
+    $list_variables = array(
+      'items' => $links,
+      'title' => t('Recent @type for <strong>@scholar</strong>', array(
+        '@type' => 'publications',
+        '@scholar' => $title,
+      )),
+      'type' => 'ul',
+      'attributes' => array('class' => 'recent_citations'),
+    );
+    return theme_item_list($list_variables);
+  }
+  return NULL;
+}
