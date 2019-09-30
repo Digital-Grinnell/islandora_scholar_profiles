@@ -1,10 +1,6 @@
-#Islandora Extended Profiles
+# Islandora Scholar Profiles
 
-This module extends the existing islandora person's object profile adding a few quality of life improvements.
-
-1. Customizable theme/style sheet
-2. Adds relationships to all objects to the profile of a person
-
+This module automatically generates a profile page for each Person entity in an Islandora repository. The profile is automatically populated with biographical information from the MADS datastream and a list of publications (drawn from objects with a defined relationship to the Person entity). Scholars can request changes to information in their profile using an associated webform. An optional submodule imports a taxonomy of research interests drawn from the NCES research classification schema, which can be used in conjunction with Person entity ingest forms. Finally, the module automatically generates a "Scholar's Directory" using a custom Solr query to create a searchable gallery view of all Person entities. 
 
 ## Requirements
 
@@ -19,7 +15,7 @@ Install as usual, see [this](https://drupal.org/documentation/install/modules-th
 
 ## Configuration
 
-Enable the module via Administration » Modules (admin/modules)
+* Enable the module via Administration » Modules (admin/modules)
 
 ## Troubleshooting/Issues
 
