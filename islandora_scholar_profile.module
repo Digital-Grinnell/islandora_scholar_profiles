@@ -238,7 +238,7 @@ function islandora_scholar_profile_xml_form_builder_get_form_modify_definition_a
   /**
    * Also we need to create custom references to u1 and u2 identifiers to create custom queries and reports, for any object.
    */
-  if ((isset($form_state['association']) && $form_state['association']['dsid'] == 'MODS') || (isset($form_state['islandora']['step_storage']) && $form_state['islandora']['step_storage']['xml_form_builder_metadata_step']['association']['dsid'] == 'MODS')) {
+  if (isset($form_state['islandora_webform']) || (isset($form_state['association']) && $form_state['association']['dsid'] == 'MODS') || (isset($form_state['islandora']['step_storage']) && $form_state['islandora']['step_storage']['xml_form_builder_metadata_step']['association']['dsid'] == 'MODS')) {
     $form['u1_identifier_tags'] = [
       '#type' => 'tags',
       '#access' => TRUE,
