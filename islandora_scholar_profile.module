@@ -23,7 +23,7 @@ function islandora_scholar_profile_menu() {
   );
   // This will use the default islandora/search callback
   $items['scholars/directory'] = array(
-    'title' => 'Scholar\'s directory',
+    'title' => 'Scholar Directory',
     'page callback' => 'islandora_scholar_profile_directory',
     'type' => MENU_NORMAL_ITEM,
     'menu_name' => 'main-menu',

@@ -9,7 +9,7 @@ This module requires the following modules/libraries:
 * [Islandora](https://github.com/islandora/islandora)
 * [Islandora Scholar](https://github.com/islandora/islandora_scholar)
 
-## Installation
+## Installation & Configuration
 
 Install as usual, see [this](https://drupal.org/documentation/install/modules-themes/modules-7) for further information.
 
@@ -27,11 +27,24 @@ Your site's Taxonomy list (admin/structure/taxonomy) will now include a new "Isl
   * No changes to final two tabs unless you're re-importing, then make the appropriate selections for your use case.
   * Click "IMPORT"
   * Check out the results at "admin/structure/taxonomy/islandora_sp_activities_vocabulary"
+  * Click into the "Manage Fields" tab (admin/structure/taxonomy/islandora_sp_activities_vocabulary/fields) to enable autocomplete. Add a new field called "Reference" of type "Term Reference" and widget "Autocomplete term widget (tagging)" with the machine name suffix "islandora_spa_reference" (this will have "field_" prepended to it automatically). Select the new Taxonomy when prompted in the new field creation process.
 * Now that you have finished importing the CSV, you can disable and uninstall any dependencies you don't need for the other functions of your site, and you can also disable the "Sample Data" submodule.
 
-## Configuration
-
-* Enable the module via Administration » Modules (admin/modules)
+Now, to set up the Scholar Profiles themselves:
+* Inside the Islandora Scholar "Profile" tab (admin/islandora/solution_pack_config/scholar/profile), make sure the appropriate taxonomy is selected for research interests. This will enable autocomplete on Profiles.
+* The remaining fields should have default values in place:
+  * Reference field, to the vocabulary that will be used for auto complete activities: "field_islandora_spa_reference"
+  * Reference field, to the the scholar profile that owns the publications that will be shown in the profile: "mods_identifier_u1_ms"
+  * Solr field: used to autocomplete u1 fields in objects, this is a field in the user profile: "MADS_u1_ms"
+  * Solr field: used to autocomplete u2 fields in objects, this is a field in the user profile: "MADS_u2_ms"
+* To add a Scholar, you'll need to create a "Person" entity. Existing "Person" entities will be available as profiles, too, although you'll need to add a few new pieces of metadata.
+  * When creating "Person" entities to be used in Profiles, use the "Scholar MADS form" in the creation process.
+  * In the Scholar MADS form, there are a few new fields:
+    * "Research Interests": auto-complete from previously imported taxonomy.
+    * "Identifier": text string to use in profile URLs and as a reference on related objects.
+    * "Department": should be an auto-complete of "Organization" entities, if you have any present in your Islandora repository. If you're setting these up, use the MADS form here, too. Fill in the new "U2" identifier field with a short string to use in URLs and as a reference value on Profiles and other objects.
+  * In the main Drupal menu, you'll notice a new link "Scholar Directory" which will take the user to a Solr search for all Scholar and Department entities. You can edit and replace that link if your theme or implementation requires modifications.
+  * Your MODS forms will all now have new fields at the end: "Faculty Identifier(s) - U1" and "Departmental Identifier(s) - U2" (both autocomplete). This will enable "Recent Publications" links from Scholar Profile pages to the related objects, as well enable tracking Author and Departmental statistics via the [Islandora Matomo module](https://github.com/mnylc/islandora_matomo) if you use that. Scholar Profile pages (aka Person entity pages) also click through to Solr searches for other Scholars with the same research interests.
 
 ## Troubleshooting/Issues
 
@@ -45,6 +58,7 @@ Having problems or solved a problem? Check out the Islandora google groups for a
 Current maintainers:
 
 * Hertzel Armengol <emudojo@gmail.com>
+* Born-Digital <hello@born-digital.com>
 
 ## Development
 
