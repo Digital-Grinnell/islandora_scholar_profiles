@@ -1,8 +1,8 @@
-name = Islandora Scholar Extended Profile
-description = Enhances build in MADS profiles for Person/Scholar objects
+name = Islandora Scholar Extended Profiles
+description = Enhances build in MADS profiles for Scholar (Person) and Department (Organization) entities
 package = Islandora Scholar
 dependencies[] = islandora
 dependencies[] = islandora_scholar
 dependencies[] = xml_form_builder
 core = 7.x
-version = 7.x-1.12
+version = 7.x-1.13
