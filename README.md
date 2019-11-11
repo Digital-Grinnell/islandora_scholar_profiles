@@ -18,7 +18,7 @@ First enable the "Islandora Scholar Extended Profiles" module, then subsequently
 Your site's Taxonomy list (admin/structure/taxonomy) will now include a new "Islandora Profile Activities" Taxonomy. It is empty, so we need to create it by hand, or import the provided sample taxonomy:
 * Install and enable all "Activities Taxonomy Sample Data" submodule dependencies: typically the two not already installed on an Islandora site are [Taxonomy_csv](https://www.drupal.org/project/taxonomy_csv) (if you have import errors see this [patch](https://www.drupal.org/project/taxonomy_csv/issues/2833513)) and [Term_ref_autocomplete](https://www.drupal.org/project/Term_ref_autocomplete)
 * Enable the "Activities Taxonomy Sample Data" submodule.
-* Download a local copy of the [NCES taxonomy](https://raw.githubusercontent.com/Born-Digital-US/islandora_scholar_profiles/master/modules/islandora_scholar_profile_activity_import/files/LASIR%20Research%20Classification%20Taxonomy%20-%20H_LASIR_Taxonomy_strict_levels.csv) and modify if desired.
+* Download a local copy of the [NCES taxonomy](https://raw.githubusercontent.com/Islandora-Collaboration-Group/islandora_scholar_profiles/master/modules/islandora_scholar_profile_activity_import/files/LASIR%20Research%20Classification%20Taxonomy%20-%20H_LASIR_Taxonomy_strict_levels.csv) and modify if desired.
 * Go into the "CSV Import" tab under taxonomies (admin/structure/taxonomy/csv_import) and follow the wizard:
   * What do you want to import: Select "Structure" and "Simple Tree"
   * Where are the files you want to import: Paste the full contents of your (maybe edited) taxonomy file into the big text box.
