@@ -44,6 +44,7 @@ Now, to set up the Scholar Profiles themselves:
     * "Identifier": text string to use in profile URLs and as a reference on related objects.
     * "Department": should be an auto-complete of "Organization" entities, if you have any present in your Islandora repository. If you're setting these up, use the MADS form here, too. Fill in the new "U2" identifier field with a short string to use in URLs and as a reference value on Profiles and other objects.
   * In the main Drupal menu, you'll notice a new link "Scholar Directory" which will take the user to a Solr search for all Scholar and Department entities. You can edit and replace that link if your theme or implementation requires modifications.
+    * The layout of each "Person" entry in your search results is theme dependent. You'll need to create or modify your `islandora-solr.tpl.php` to display only the metadata you need visible.
   * Your MODS forms will all now have new fields at the end: "Faculty Identifier(s) - U1" and "Departmental Identifier(s) - U2" (both autocomplete). This will enable "Recent Publications" links from Scholar Profile pages to the related objects, as well enable tracking Author and Departmental statistics via the [Islandora Matomo module](https://github.com/mnylc/islandora_matomo) if you use that. Scholar Profile pages (aka Person entity pages) also click through to Solr searches for other Scholars with the same research interests.
 
 ## Troubleshooting/Issues
